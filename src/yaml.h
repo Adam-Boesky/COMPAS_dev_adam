@@ -81,6 +81,7 @@ namespace yaml {
             "    --errors-to-file",
             "    --evolve-main-sequence-mergers",
             "    --evolve-unbound-systems",
+            "    --emit-gravitational-radiation",
             "    --population-data-printing",
             "    --print-bool-as-string",
             "    --quiet",

@@ -413,6 +413,9 @@ private:
 
     double  CalculateAngularMomentum() const                                    { return CalculateAngularMomentum(m_SemiMajorAxis, m_Eccentricity, m_Star1->Mass(), m_Star2->Mass(), m_Star1->Omega(), m_Star2->Omega(), m_Star1->CalculateMomentOfInertiaAU(), m_Star2->CalculateMomentOfInertiaAU()); }
 
+    std::tuple<double, double>    CalculateGravitationalRadiation();
+    void    EmitGravitationalWave(const double p_Dt, const double DaDtGW, const double DeDtGW);
+
     void    CalculateEnergyAndAngularMomentum();
 
     double  CalculateDEccentricityTidalDt(const DBL_DBL_DBL_DBL p_ImKlm, const BinaryConstituentStar* p_Star);

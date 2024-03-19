@@ -1255,9 +1255,13 @@
 //                                      - Continue evolution of main sequence merger products beyond the main sequence
 //                                      - Remove spurious print statement
 //                                      - Typo fixes
+// 03.01.00    APB - Aug 18, 2024  = Enhancement:
+//                                      - Implemented gravitational radiation at each timestep of binary evolution. Available with new '--emit-gravitational-radiation' option.
+//                                          - If --emit-gravitational-radiation, timestep dynamically as function of da/dt.
 
 
-const std::string VERSION_STRING = "03.00.02";
+
+const std::string VERSION_STRING = "03.01.00";
 
 
 # endif // __changelog_h__
