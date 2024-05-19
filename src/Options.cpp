@@ -170,7 +170,7 @@ void Options::OptionValues::Initialise() {
     m_EvolveMainSequenceMergers                                     = false;
     m_EvolvePulsars                                                 = false;
 	m_EvolveUnboundSystems                                          = true;
-    m_EmitGravitationalRadiation                                    = true;
+    m_EmitGravitationalRadiation                                    = false;
 
     m_NatalKickForPPISN                                             = false;
 
@@ -817,7 +817,7 @@ bool Options::AddOptions(OptionValues *p_Options, po::options_description *p_Opt
         )
         (
             "emit-gravitational-radiation",                                      
-            po::value<bool>(&p_Options->m_EmitGravitationalRadiation)->default_value(p_Options->m_EmitGravitationalRadiation)->implicit_value(true),                                                          
+            po::value<bool>(&p_Options->m_EmitGravitationalRadiation)->default_value(p_Options->m_EmitGravitationalRadiation)->implicit_value(false),                                                          
             ("Emit gravitational radiation at each timestep of binary evolution (default = " + std::string(p_Options->m_EmitGravitationalRadiation ? "TRUE" : "FALSE") + ")").c_str()
         )
         (

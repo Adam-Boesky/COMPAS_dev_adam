@@ -1257,7 +1257,7 @@
 //                                      - Typo fixes
 // 03.01.00    APB - Aug 18, 2024  = Enhancement:
 //                                      - Implemented gravitational radiation at each timestep of binary evolution. Available with new '--emit-gravitational-radiation' option.
-//                                          - If --emit-gravitational-radiation, timestep dynamically as function of da/dt.
+//                                          - If --emit-gravitational-radiation is true, timestep dynamically as function of da/dt.
 
 
 

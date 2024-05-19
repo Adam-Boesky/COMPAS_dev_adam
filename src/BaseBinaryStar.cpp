@@ -2493,13 +2493,14 @@ void BaseBinaryStar::ProcessTides(const double p_Dt) {
 /*
  * Update the GW effects on the binary
  *
- * Use Peters 1964's approximations of the effects of emitting a GW by:
+ * Use Peters 1964's approximations of the effects of emitting GWs by:
  * - Updating the binary's semi-major axis (eq 5.6)
  * - Updating the binary's eccentricity (eq 5.7)
  * 
- * void CalculateGravitationalRadiation()
+ * std::tuple<double, double> CalculateGravitationalRadiation()
  * 
- * @return                  The change in semi major axis and eccentricity per time due to GW emission
+ * @return                  A tuple of the rate of change in semimajor axis (AU/Myr) and 
+ *                          eccentricity (1/Myr) due to GW emission.
 */
 std::tuple<double, double> BaseBinaryStar::CalculateGravitationalRadiation() {
 
@@ -2529,7 +2530,7 @@ std::tuple<double, double> BaseBinaryStar::CalculateGravitationalRadiation() {
 /*
  * Emit a GW based on the effects calculated by BaseBinaryStar::CalculateGravitationalRadiation().
  * 
- * This function updates the sem-major axis, eccentricity, and previous eccentricity values
+ * This function updates the semi-major axis, eccentricity, and previous eccentricity values
  * (m_SemiMajorAxis, m_Eccentricity, and m_EccentricityPrev) as a result of emitting the GW.
  * 
  * void EmitGravitationalRadiation(const double p_Dt)
