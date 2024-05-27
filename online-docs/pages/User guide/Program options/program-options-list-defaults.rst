@@ -381,7 +381,7 @@ Default = 1.0
 
 **--emit-gravitational-radiation**  |br|
 Emit gravitational radiation at each timestep of binary evolution according to Peters 1964. |br|
-Default = TRUE
+Default = FALSE
 
 **--enable-warnings** |br|
 Display warning messages to stdout. |br|

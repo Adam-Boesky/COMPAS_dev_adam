@@ -2491,70 +2491,127 @@ void BaseBinaryStar::ProcessTides(const double p_Dt) {
 
 
 /*
- * Update the GW effects on the binary
+ * Process tides if required
  *
- * Use Peters 1964's approximations of the effects of emitting GWs by:
- * - Updating the binary's semi-major axis (eq 5.6)
- * - Updating the binary's eccentricity (eq 5.7)
  * 
- * std::tuple<double, double> CalculateGravitationalRadiation()
- * 
- * @return                  A tuple of the rate of change in semimajor axis (AU/Myr) and 
- *                          eccentricity (1/Myr) due to GW emission.
-*/
-std::tuple<double, double> BaseBinaryStar::CalculateGravitationalRadiation() {
+ * void BaseBinaryStar::ProcessTides(const double p_Dt)
+ *
+ * @param   [in]        p_Dt                    Timestep (in Myr)
+ */
+void BaseBinaryStar::ProcessTides(const double p_Dt) {
 
-    // Useful values
-    double eccentricitySquared = m_Eccentricity * m_Eccentricity;
-    double oneMinusESq = 1.0 - eccentricitySquared;
-    double oneMinusESq_5 = oneMinusESq * oneMinusESq * oneMinusESq * oneMinusESq * oneMinusESq;
-    double G_AU_Msol_yr_3 = G_AU_Msol_yr * G_AU_Msol_yr * G_AU_Msol_yr;
-    double C_AU_Yr_5 = C_AU_yr * C_AU_yr * C_AU_yr * C_AU_yr * C_AU_yr;
-    double m_SemiMajorAxis_3 = m_SemiMajorAxis * m_SemiMajorAxis * m_SemiMajorAxis;
-    double massAndGAndCTerm = G_AU_Msol_yr_3 * m_Star1->Mass() * m_Star2->Mass() * (m_Star1->Mass() + m_Star2->Mass()) / C_AU_Yr_5;  // G^3 * m1 * m2(m1 + m2) / c^5 in units of Msol, AU and yr
+    if (!m_Unbound) {                                                                                                           // binary bound?
+                                                                                                                                // yes - process tides if enabled
+        if (OPTIONS->TidesPrescription() != TIDES_PRESCRIPTION::NONE) {                                                         // tides enabled?
 
-    // Approximate rate of change in semimajor axis
-    double numeratorA = -64.0 * massAndGAndCTerm;
-    double denominatorA = 5.0 * m_SemiMajorAxis_3 * std::sqrt(oneMinusESq_5 * oneMinusESq * oneMinusESq);
-    double DaDtGW = (numeratorA / denominatorA) * (1.0 + (73.0 / 24.0) * eccentricitySquared + (37.0 / 96.0) * eccentricitySquared * eccentricitySquared) * MYR_TO_YEAR;  // units of AU Myr^-1
+            // if m_Omega == 0.0 (should only happen on the first timestep), calculate m_Omega here
+            if (utils::Compare(m_Omega, 0.0) == 0) m_Omega = OrbitalAngularVelocity();
+        }
 
-    // Approximate rate of change in eccentricity
-    double numeratorE = -304.0 * m_Eccentricity * massAndGAndCTerm;
-    double denominatorE = 15.0 * m_SemiMajorAxis_3 * m_SemiMajorAxis * std::sqrt(oneMinusESq_5);
-    double DeDtGW = (numeratorE / denominatorE) * (1.0 + (121.0 / 304.0) * eccentricitySquared) * YEAR_TO_MYR;  // units of Myr^-1
+        switch (OPTIONS->TidesPrescription()) {                                                                                 // which tides prescription?
+            case TIDES_PRESCRIPTION::NONE: break;                                                                               // NONE - tides not enabled - do nothing
+        
+            case TIDES_PRESCRIPTION::KAPIL2024: {                                                                               // KAPIL2024
 
-    return std::make_tuple(DaDtGW, DeDtGW);
+                // Evolve binary semi-major axis, eccentricity, and spin of each star based on Kapil et al., 2024
+
+                DBL_DBL_DBL_DBL ImKlm1   = m_Star1->CalculateImKlmTidal(m_Omega, m_SemiMajorAxis, m_Star2->Mass());
+                DBL_DBL_DBL_DBL ImKlm2   = m_Star2->CalculateImKlmTidal(m_Omega, m_SemiMajorAxis, m_Star1->Mass());
+
+                double DSemiMajorAxis1Dt = CalculateDSemiMajorAxisTidalDt(ImKlm1, m_Star1);                                     // change in semi-major axis from star1
+                double DSemiMajorAxis2Dt = CalculateDSemiMajorAxisTidalDt(ImKlm2, m_Star2);                                     // change in semi-major axis from star2
+
+                double DEccentricity1Dt  = CalculateDEccentricityTidalDt(ImKlm1, m_Star1);                                      // change in eccentricity from star1
+                double DEccentricity2Dt  = CalculateDEccentricityTidalDt(ImKlm2, m_Star2);                                      // change in eccentricity from star2
+
+                double DOmega1Dt         = CalculateDOmegaTidalDt(ImKlm1, m_Star1);                                             // change in spin from star1
+                double DOmega2Dt         = CalculateDOmegaTidalDt(ImKlm2, m_Star2);                                             // change in spin from star2
+
+                m_Star1->SetOmega(m_Star1->Omega() + (DOmega1Dt * p_Dt * MYR_TO_YEAR));                                         // evolve star 1 spin
+                m_Star2->SetOmega(m_Star2->Omega() + (DOmega2Dt * p_Dt * MYR_TO_YEAR));                                         // evolve star 2 spin
+
+                m_SemiMajorAxis          = m_SemiMajorAxis + ((DSemiMajorAxis1Dt + DSemiMajorAxis2Dt) * p_Dt * MYR_TO_YEAR);    // evolve separation
+                m_Eccentricity           = m_Eccentricity + ((DEccentricity1Dt + DEccentricity2Dt) * p_Dt * MYR_TO_YEAR);       // evolve eccentricity 
+                m_Omega                  = OrbitalAngularVelocity();                                                            // re-calculate orbital frequency
+                m_TotalAngularMomentum   = CalculateAngularMomentum();                                                          // re-calculate total angular momentum
+
+                } break;
+
+            case TIDES_PRESCRIPTION::PERFECT: {                                                                                 // PERFECT
+
+                // find omega assuming instantaneous synchronisation
+                // use current value of m_Omega as best guess for root
+
+                m_Omega = OmegaAfterSynchronisation(m_Star1->Mass(), m_Star2->Mass(), m_Star1->CalculateMomentOfInertiaAU(), m_Star2->CalculateMomentOfInertiaAU(), m_TotalAngularMomentum, m_Omega);
+
+                if (m_Omega >= 0.0) {                                                                                           // root found?
+                                                                                                                                // yes
+                    m_Star1->SetOmega(m_Omega);                                                                                 // synchronise star 1
+                    m_Star2->SetOmega(m_Omega);                                                                                 // synchronise star 2
+
+                    m_SemiMajorAxis        = std::cbrt(G_AU_Msol_yr * (m_Star1->Mass() + m_Star2->Mass()) / m_Omega / m_Omega); // re-calculate semi-major axis
+                    m_Eccentricity         = 0.0;                                                                               // circularise
+                    m_TotalAngularMomentum = CalculateAngularMomentum();                                                        // re-calculate total angular momentum
+                }
+                else {                                                                                                          // no (real) root found
+
+                    // no real root found - push the binary to a common envelope
+                    // place the constituent star closest to RLOF at RLOF and use that to
+                    // calculate semi-major axis, then use that to calculate m_Omega
+
+                    double ratio1 = m_Star1->StarToRocheLobeRadiusRatio(m_SemiMajorAxis, m_Star1->Mass());                      // star 1 ratio of radius to Roche lobe radius
+                    double ratio2 = m_Star2->StarToRocheLobeRadiusRatio(m_SemiMajorAxis, m_Star2->Mass());                      // star 2 ratio of radius to Roche lobe radius
+
+                    double radius;
+                    double mass1;
+                    double mass2;
+                    if (ratio1 >= ratio2) {                                                                                     // star 1 closer to RLOF than star 2 (or same)?
+                        radius = m_Star1->Radius();                                                                             // yes - use star 1 to calculate semi-major axis at RLOF
+                        mass1  = m_Star1->Mass();
+                        mass2  = m_Star2->Mass();
+                    }
+                    else {                                                                                                      // no - star 2 closer to RLOF than star 1
+                        radius = m_Star2->Radius();                                                                             // use star 2 to calculate semi-major axis at RLOF
+                        mass1  = m_Star2->Mass();
+                        mass2  = m_Star1->Mass();
+                    }
+            
+                    m_Eccentricity  = 0.0;                                                                                      // assume circular
+                    m_SemiMajorAxis = radius * RSOL_TO_AU / CalculateRocheLobeRadius_Static(mass1, mass2);                      // new semi-major axis - should tip into CE
+                    m_Omega         = OrbitalAngularVelocity();                                                                 // m_Omega at new semi-major axis
+                }
+                } break;
+
+            default:
+                // the only way this can happen is if someone added a TIDES_PRESCRIPTION
+                // and it isn't accounted for in this code.  We should not default here, with or without a warning.
+                // We are here because the user chose a prescription this code doesn't account for, and that should
+                // be flagged as an error and result in termination of the evolution of the binary.
+                // The correct fix for this is to add code for the missing prescription or, if the missing
+                // prescription is superfluous, remove it from the option.
+
+                THROW_ERROR(ERROR::UNKNOWN_TIDES_PRESCRIPTION);                                                                 // throw error
+        }
+    }
 }
 
 
 /*
- * Emit a GW based on the effects calculated by BaseBinaryStar::CalculateGravitationalRadiation().
- * 
- * This function updates the semi-major axis, eccentricity, and previous eccentricity values
- * (m_SemiMajorAxis, m_Eccentricity, and m_EccentricityPrev) as a result of emitting the GW.
- * 
- * void EmitGravitationalRadiation(const double p_Dt)
+ * Calculate and emit gravitational radiation.
  *
+ * This function uses Peters 1964 to approximate the effects of GW emission with two steps:
+ * - Update m_SemiMajorAxis using the change in semi-major axis per time given by eq 5.6.
+ * - Update m_Eccentricity using the change in eccentricity per time given by eq 5.7.
+ * 
+ * Notably, m_DaDtGW and m_DeDtGW are updated so that they can be used to calculate the timestep dynamically.
+ * m_SemiMajorAxisPrev and m_SemiMajorAxisPrev are also modified for later use.
+ * 
+ * void CalculateGravitationalRadiation()
+ * 
  * @param   [IN]    p_Dt                        timestep in Myr
- * @param   [IN]    DaDtGW                      change in semimajor axis per time in AU/Myr due to GW radiation
- * @param   [IN]    DeDtGW                      change in eccentricity per time in Myr^-1 due to GW radiation
+ * 
 */
-void BaseBinaryStar::EmitGravitationalWave(const double p_Dt, const double DaDtGW, const double DeDtGW) {
-
-    // Update semimajor axis
-    double aNew = m_SemiMajorAxis + (DaDtGW * p_Dt);
-    m_SemiMajorAxis = utils::Compare(aNew, 0.0) > 0 ? aNew : 1E-20;  // if <0, set to arbitrarily small number
-
-    // Update the eccentricity
-    m_Eccentricity += DeDtGW * p_Dt;
-
-    // Save values as previous timestep
-    m_SemiMajorAxisPrev = m_SemiMajorAxis;
-    m_EccentricityPrev = m_Eccentricity;
-}
-
-
-void BaseBinaryStar::EmitGW2(double p_Dt) {
+void BaseBinaryStar::CalculateGravitationalRadiation(double p_Dt) {
 
     // Useful values
     double eccentricitySquared = m_Eccentricity * m_Eccentricity;
@@ -2586,11 +2643,22 @@ void BaseBinaryStar::EmitGW2(double p_Dt) {
 }
 
 
+/* 
+ * Choose a timestep based on the parameters of the binary.
+ *
+ * This function will return the minimum of (i) a timestep based on the
+ * orbital timescale of the binary and (ii) (if configured to emit GWs)
+ * a timestep based on the magnitude of gravitational radiation.
+ * 
+ * double ChooseTimestep(double p_Dt)
+ * 
+ * @param   [IN]    p_Dt                        previous timestep in Myr
+ * @return                                      new timestep in Myr
+*/
 double BaseBinaryStar::ChooseTimestep(double p_Dt) {
 
     m_Star1->UpdatePreviousTimestepDuration();
     m_Star2->UpdatePreviousTimestepDuration();
-
 
     p_Dt = std::min(m_Star1->CalculateTimestep(), m_Star2->CalculateTimestep()) * OPTIONS->TimestepMultiplier();                // update dt for orbital timescale
     p_Dt = std::round(p_Dt / TIMESTEP_QUANTUM) * TIMESTEP_QUANTUM;                                                              // quantised
@@ -2830,10 +2898,10 @@ EVOLUTION_STATUS BaseBinaryStar::Evolve() {
 
                 error = EvolveOneTimestep(dt);                                                                                          // evolve the binary system one timestep
 
-                // emit gravitational radiation if selected by user
-                if (OPTIONS->EmitGravitationalRadiation()) {
-                    EmitGW2(dt);
-                }
+            // emit gravitational radiation if selected by user
+            if (OPTIONS->EmitGravitationalRadiation()) {
+                CalculateGravitationalRadiation(dt);
+            }
 
                 if (error != ERROR::NONE) {                                                                                             // SSE error for either constituent star?
                     evolutionStatus = EVOLUTION_STATUS::SSE_ERROR;                                                                      // yes - stop evolution
