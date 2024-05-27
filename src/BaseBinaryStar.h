@@ -382,6 +382,9 @@ private:
 	double              m_OrbitalAngularMomentumPrev;
 	double              m_OrbitalAngularMomentum;
 
+    double              m_DaDtGW;                                                           // Change in semi-major axis per time due to gravitational radiation
+    double              m_DeDtGW;                                                           // Change in eccentricity per time due to gravitational radiation
+
 	double              m_OrbitalEnergyPrev;
 	double              m_OrbitalEnergy;
 
@@ -415,6 +418,9 @@ private:
 
     std::tuple<double, double>    CalculateGravitationalRadiation();
     void    EmitGravitationalWave(const double p_Dt, const double DaDtGW, const double DeDtGW);
+    void    EmitGW2(double p_Dt);
+
+    double  ChooseTimestep(double p_Dt);
 
     void    CalculateEnergyAndAngularMomentum();
 
