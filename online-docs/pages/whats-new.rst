@@ -6,7 +6,7 @@ Following is a brief list of important updates to the COMPAS code.  A complete r
 
 **LATEST RELEASE** |br|
 
-**02.49.00 May 17, 2024**
+**02.50.00 May 17, 2024**
 
 * New option to emit gravitational radiation at each timestep of binary evolution: ``--emit-gravitational-radiation``. The effects of radiation are approximated by the change in semimajor axis and eccentricity from Peters 1946 equations 5.6 and 5.7.
 * If ``--emit-gravitational-radiation``, we update timesteps dynamically as a function of :math:`da/dt` if gravitational radiation is large enough.
