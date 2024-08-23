@@ -2528,7 +2528,7 @@ void BaseBinaryStar::CalculateGravitationalRadiation() {
  * Emit a GW based on the effects calculated by BaseBinaryStar::CalculateGravitationalRadiation().
  * 
  * This function updates the semi-major axis, eccentricity, and previous eccentricity values
- * (m_SemiMajorAxis, m_Eccentricity, and m_EccentricityPrev) as a result of emitting the GW.
+ * (m_SemiMajorAxis, m_Eccentricity, m_SemiMajorAxisPrev, and m_EccentricityPrev) as a result of emitting GWs.
  * 
  * void EmitGravitationalRadiation(const double p_Dt)
  *
