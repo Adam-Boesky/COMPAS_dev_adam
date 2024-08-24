@@ -2554,27 +2554,25 @@ void BaseBinaryStar::EmitGravitationalWave(const double p_Dt) {
 /* 
  * Choose a timestep based on the parameters of the binary.
  *
- * This function will return the minimum of (i) a timestep based on the
- * orbital timescale of the binary and (ii) (if configured to emit GWs)
- * a timestep based on the magnitude of gravitational radiation.
+ * Returns a timestep based on the orbital timescale of the binary or, if emitting GWs,
+ * magnitude of gravitational radiation
  * 
  *
- * double ChooseTimestep(const double p_Dt)
+ * double ChooseTimestep()
  * 
- * @param   [IN]    p_Dt                        previous timestep in Myr
- * @return                                      new timestep in Myr
+ * @return                                      timestep in Myr
  */
-double BaseBinaryStar::ChooseTimestep(const double p_Dt) {
+double BaseBinaryStar::ChooseTimestep() {
 
-    double newDt = std::min(m_Star1->CalculateTimestep(), m_Star2->CalculateTimestep());        			// new timestep
+    double dt = std::min(m_Star1->CalculateTimestep(), m_Star2->CalculateTimestep());                   // timestep based on orbital timescale
 
-    if (OPTIONS->EmitGravitationalRadiation()) {                                                                        // emitting GWs?
-        newDt = std::min(newDt, -1.0E-2 * m_SemiMajorAxis / m_DaDtGW);                                                  // reduce timestep if necessary to ensure that the orbital separation does not change by more than ~1% per timestep due to GW emission
+    if (OPTIONS->EmitGravitationalRadiation()) {                                                        // emitting GWs?
+        dt = std::min(dt, -1.0E-2 * m_SemiMajorAxis / m_DaDtGW);                                        // yes - reduce timestep if necessary to ensure that the orbital separation does not change by more than ~1% per timestep due to GW emission
     }
 
-    newDt *= OPTIONS->TimestepMultiplier();	
+    dt *= OPTIONS->TimestepMultiplier();	
 
-    return std::max(std::round(newDt / TIMESTEP_QUANTUM) * TIMESTEP_QUANTUM, NUCLEAR_MINIMUM_TIMESTEP);                // quantised and not less than minimum
+    return std::max(std::round(dt / TIMESTEP_QUANTUM) * TIMESTEP_QUANTUM, NUCLEAR_MINIMUM_TIMESTEP);    // quantised and not less than minimum
 }
 
 
@@ -2797,6 +2795,7 @@ EVOLUTION_STATUS BaseBinaryStar::Evolve() {
                     m_Star2->UpdatePreviousTimestepDuration();
                     m_Star1->UpdatePreviousTimestepDuration();
                 }
+                
                 if (usingProvidedTimesteps) {                                                                                           // user-provided timesteps?
                     // select a timestep
                     //   - don't quantise
