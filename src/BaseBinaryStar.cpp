@@ -2558,11 +2558,12 @@ void BaseBinaryStar::EmitGravitationalWave(const double p_Dt) {
  * magnitude of gravitational radiation
  * 
  *
- * double ChooseTimestep()
+ * double ChooseTimestep(const double p_Multiplier)
  * 
+ * @param   [IN]    p_Multiplier                timestep multiplier
  * @return                                      timestep in Myr
  */
-double BaseBinaryStar::ChooseTimestep() {
+double BaseBinaryStar::ChooseTimestep(const double p_Multiplier) {
 
     double dt = std::min(m_Star1->CalculateTimestep(), m_Star2->CalculateTimestep());                   // timestep based on orbital timescale
 
@@ -2570,7 +2571,7 @@ double BaseBinaryStar::ChooseTimestep() {
         dt = std::min(dt, -1.0E-2 * m_SemiMajorAxis / m_DaDtGW);                                        // yes - reduce timestep if necessary to ensure that the orbital separation does not change by more than ~1% per timestep due to GW emission
     }
 
-    dt *= OPTIONS->TimestepMultiplier();	
+    dt *= p_Multiplier;	
 
     return std::max(std::round(dt / TIMESTEP_QUANTUM) * TIMESTEP_QUANTUM, NUCLEAR_MINIMUM_TIMESTEP);    // quantised and not less than minimum
 }
@@ -2778,45 +2779,43 @@ EVOLUTION_STATUS BaseBinaryStar::Evolve() {
             // evolve the current binary up to the maximum evolution time (and number of steps)
 
             double dt;                                                                                                                  // timestep
-            unsigned long int stepNum = 0;                                                                                              // initialise step number
-
-            while (evolutionStatus == EVOLUTION_STATUS::CONTINUE) {                                                                     // perform binary evolution - iterate over timesteps until told to stop
-
-                stepNum++;                                                                                                              // increment stepNum
-
+            if (usingProvidedTimesteps) {                                                                                               // user-provided timesteps?
+                // get new timestep
+                //   - don't quantise
+                //   - don't apply timestep multiplier
+                // (we assume user wants the timesteps in the file)
+                // 
+                // Open question: should we clamp this to NUCLEAR_MINIMUM_TIMESTEP?
+                dt = timesteps[0];
+            }
+            else {                                                                                                                      // no - not using user-provided timesteps
                 // if user selects to emit GWs, calculate the effects of radiation
-                //     - note that this is placed before ChooseTimestep() is called because
-                //       the timestep is a function of graviational radiation
+                //     - note that this is placed before the call to ChooseTimestep() because when
+                //       emitting GWs the timestep is a function of graviational radiation
                 if (OPTIONS->EmitGravitationalRadiation()) {
                     CalculateGravitationalRadiation();
                 }
 
-                if (stepNum > 1) {                                                                                                      // after the first timestep, set previous timestep
-                    m_Star2->UpdatePreviousTimestepDuration();
-                    m_Star1->UpdatePreviousTimestepDuration();
-                }
-                
-                if (usingProvidedTimesteps) {                                                                                           // user-provided timesteps?
-                    // select a timestep
-                    //   - don't quantise
-                    //   - don't apply timestep multiplier
-                    // (we assume user wants the timesteps in the file)
-                    dt = timesteps[stepNum - 1];
-                }
-                else {                                                                                                                  // no - not using user-provided timesteps
-                    dt = ChooseTimestep(dt);
-                }
+                // we want the first timestep to be small - calculate timestep and divide by 1000.0
+                // *ilya* is this desirable when we're emitting GWs?  It is the very first timestep,
+                // and prior to the GW code we keep it small just to let the first (small) timestep
+                // initialise the binary
+                dt = ChooseTimestep(OPTIONS->TimestepMultiplier() / 1000.0);                                                            // calculate timestep - make first step small
+            }
+
+            unsigned long int stepNum = 1; 
+
+            while (evolutionStatus == EVOLUTION_STATUS::CONTINUE) {                                                                     // perform binary evolution - iterate over timesteps until told to stop
 
                 error = EvolveOneTimestep(dt);                                                                                          // evolve the binary system one timestep
-
-                if (OPTIONS->EmitGravitationalRadiation()) {
-                    EmitGravitationalWave(dt);                                                                                          // emit a graviataional wave
-                }
-
                 if (error != ERROR::NONE) {                                                                                             // SSE error for either constituent star?
                     evolutionStatus = EVOLUTION_STATUS::SSE_ERROR;                                                                      // yes - stop evolution
                 }
                 else {                                                                                                                  // continue evolution
+
+                    if (OPTIONS->EmitGravitationalRadiation()) {                                                                        // emitting GWs?
+                        EmitGravitationalWave(dt);                                                                                      // yes - emit graviataional wave
+                    }
 
                     (void)PrintDetailedOutput(m_Id, BSE_DETAILED_RECORD_TYPE::POST_STELLAR_TIMESTEP);                                   // print (log) detailed output
 
@@ -2899,6 +2898,33 @@ EVOLUTION_STATUS BaseBinaryStar::Evolve() {
                     SHOW_WARN(ERROR::TIMESTEPS_EXHAUSTED);                                                                              // show warning
                 }
 
+                if (evolutionStatus == EVOLUTION_STATUS::CONTINUE) {                                                                    // continue evolution?
+
+                    // if user selects to emit GWs, calculate the effects of radiation
+                    //     - note that this is placed before the call to ChooseTimestep() because when
+                    //       emitting GWs the timestep is a function of graviational radiation                    
+                    if (OPTIONS->EmitGravitationalRadiation()) {
+                        CalculateGravitationalRadiation();
+                    }
+
+                    m_Star2->UpdatePreviousTimestepDuration();
+                    m_Star1->UpdatePreviousTimestepDuration();
+                
+                    if (usingProvidedTimesteps) {                                                                                       // user-provided timesteps?
+                        // select a timestep
+                        //   - don't quantise
+                        //   - don't apply timestep multiplier
+                        // (we assume user wants the timesteps in the file)
+                        // 
+                        // Open question: should we clamp this to NUCLEAR_MINIMUM_TIMESTEP?
+                        dt = timesteps[stepNum];
+                    }
+                    else {                                                                                                              // no - not using user-provided timesteps
+                        dt = ChooseTimestep(OPTIONS->TimestepMultiplier());
+                    }
+
+                    stepNum++;                                                                                                          // increment stepNum
+                }
             }
 
             if (usingProvidedTimesteps && timesteps.size() > stepNum) {                                                                 // all user-defined timesteps consumed?
