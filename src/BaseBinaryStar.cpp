@@ -2797,9 +2797,11 @@ EVOLUTION_STATUS BaseBinaryStar::Evolve() {
                 }
 
                 // we want the first timestep to be small - calculate timestep and divide by 1000.0
-                // *ilya* is this desirable when we're emitting GWs?  It is the very first timestep,
-                // and prior to the GW code we keep it small just to let the first (small) timestep
-                // initialise the binary
+                // *ilya* *adam*
+                // the first timestep is set small because we don't want to miss any significant
+                // events in the first timestep - this is from the legacy code and seems reasobale.
+                // Given that we calculate the gravitational radiation first here, is the small
+                // first timestep desirable when we're emitting GWs?
                 dt = ChooseTimestep(OPTIONS->TimestepMultiplier() / 1000.0);                                                            // calculate timestep - make first step small
             }
 
