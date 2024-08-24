@@ -2499,28 +2499,29 @@ void BaseBinaryStar::ProcessTides(const double p_Dt) {
  * 
  * m_DaDtGW and m_DeDtGW are updated so that they can be used to calculate the timestep dynamically.
  * 
+ *
  * void CalculateGravitationalRadiation()
-*/
+ */
 void BaseBinaryStar::CalculateGravitationalRadiation() {
 
     // Useful values
     double eccentricitySquared = m_Eccentricity * m_Eccentricity;
-    double oneMinusESq = 1.0 - eccentricitySquared;
-    double oneMinusESq_5 = oneMinusESq * oneMinusESq * oneMinusESq * oneMinusESq * oneMinusESq;
-    double G_AU_Msol_yr_3 = G_AU_Msol_yr * G_AU_Msol_yr * G_AU_Msol_yr;
-    double C_AU_Yr_5 = C_AU_yr * C_AU_yr * C_AU_yr * C_AU_yr * C_AU_yr;
-    double m_SemiMajorAxis_3 = m_SemiMajorAxis * m_SemiMajorAxis * m_SemiMajorAxis;
-    double massAndGAndCTerm = G_AU_Msol_yr_3 * m_Star1->Mass() * m_Star2->Mass() * (m_Star1->Mass() + m_Star2->Mass()) / C_AU_Yr_5;  // G^3 * m1 * m2(m1 + m2) / c^5 in units of Msol, AU and yr
+    double oneMinusESq         = 1.0 - eccentricitySquared;
+    double oneMinusESq_5       = oneMinusESq * oneMinusESq * oneMinusESq * oneMinusESq * oneMinusESq;
+    double G_AU_Msol_yr_3      = G_AU_Msol_yr * G_AU_Msol_yr * G_AU_Msol_yr;
+    double C_AU_Yr_5           = C_AU_yr * C_AU_yr * C_AU_yr * C_AU_yr * C_AU_yr;
+    double m_SemiMajorAxis_3   = m_SemiMajorAxis * m_SemiMajorAxis * m_SemiMajorAxis;
+    double massAndGAndCTerm    = G_AU_Msol_yr_3 * m_Star1->Mass() * m_Star2->Mass() * (m_Star1->Mass() + m_Star2->Mass()) / C_AU_Yr_5;						// G^3 * m1 * m2(m1 + m2) / c^5 in units of Msol, AU and yr
 
     // Approximate rate of change in semimajor axis
-    double numeratorA = -64.0 * massAndGAndCTerm;
+    double numeratorA   = -64.0 * massAndGAndCTerm;
     double denominatorA = 5.0 * m_SemiMajorAxis_3 * std::sqrt(oneMinusESq_5 * oneMinusESq * oneMinusESq);
-    m_DaDtGW = (numeratorA / denominatorA) * (1.0 + (73.0 / 24.0) * eccentricitySquared + (37.0 / 96.0) * eccentricitySquared * eccentricitySquared) * MYR_TO_YEAR;  // units of AU Myr^-1
+    m_DaDtGW            = (numeratorA / denominatorA) * (1.0 + (73.0 / 24.0) * eccentricitySquared + (37.0 / 96.0) * eccentricitySquared * eccentricitySquared) * MYR_TO_YEAR;  // units of AU Myr^-1
 
     // Approximate rate of change in eccentricity
-    double numeratorE = -304.0 * m_Eccentricity * massAndGAndCTerm;
+    double numeratorE   = -304.0 * m_Eccentricity * massAndGAndCTerm;
     double denominatorE = 15.0 * m_SemiMajorAxis_3 * m_SemiMajorAxis * std::sqrt(oneMinusESq_5);
-    m_DeDtGW = (numeratorE / denominatorE) * (1.0 + (121.0 / 304.0) * eccentricitySquared) * YEAR_TO_MYR;  // units of Myr^-1
+    m_DeDtGW            = (numeratorE / denominatorE) * (1.0 + (121.0 / 304.0) * eccentricitySquared) * YEAR_TO_MYR;									// units of Myr^-1
 }
 
 
@@ -2530,14 +2531,15 @@ void BaseBinaryStar::CalculateGravitationalRadiation() {
  * This function updates the semi-major axis, eccentricity, and previous eccentricity values
  * (m_SemiMajorAxis, m_Eccentricity, m_SemiMajorAxisPrev, and m_EccentricityPrev) as a result of emitting GWs.
  * 
+ *
  * void EmitGravitationalRadiation(const double p_Dt)
  *
  * @param   [IN]    p_Dt                        timestep in Myr
-*/
+ */
 void BaseBinaryStar::EmitGravitationalWave(const double p_Dt) {
 
     // Update semimajor axis
-    double aNew = m_SemiMajorAxis + (m_DaDtGW * p_Dt);
+    double aNew     = m_SemiMajorAxis + (m_DaDtGW * p_Dt);
     m_SemiMajorAxis = utils::Compare(aNew, 0.0) > 0 ? aNew : 1E-20;  // if <0, set to arbitrarily small number
 
     // Update the eccentricity
@@ -2545,7 +2547,7 @@ void BaseBinaryStar::EmitGravitationalWave(const double p_Dt) {
 
     // Save values as previous timestep	
     m_SemiMajorAxisPrev = m_SemiMajorAxis;	
-    m_EccentricityPrev = m_Eccentricity;
+    m_EccentricityPrev  = m_Eccentricity;
 }
 
 
@@ -2556,24 +2558,23 @@ void BaseBinaryStar::EmitGravitationalWave(const double p_Dt) {
  * orbital timescale of the binary and (ii) (if configured to emit GWs)
  * a timestep based on the magnitude of gravitational radiation.
  * 
- * double ChooseTimestep(double p_Dt)
+ *
+ * double ChooseTimestep(const double p_Dt)
  * 
  * @param   [IN]    p_Dt                        previous timestep in Myr
  * @return                                      new timestep in Myr
-*/
-double BaseBinaryStar::ChooseTimestep(double p_Dt) {
+ */
+double BaseBinaryStar::ChooseTimestep(const double p_Dt) {
 
-    p_Dt = std::min(m_Star1->CalculateTimestep(), m_Star2->CalculateTimestep());        				// calculate new timestep
+    double newDt = std::min(m_Star1->CalculateTimestep(), m_Star2->CalculateTimestep());        			// new timestep
 
     if (OPTIONS->EmitGravitationalRadiation()) {                                                                        // emitting GWs?
-        p_Dt = std::min(p_Dt, -1.0E-2 * m_SemiMajorAxis / m_DaDtGW);                                                    // reduce timestep if necessary to ensure that the orbital separation does not change by more than ~1% per timestep due to GW emission
+        newDt = std::min(newDt, -1.0E-2 * m_SemiMajorAxis / m_DaDtGW);                                                  // reduce timestep if necessary to ensure that the orbital separation does not change by more than ~1% per timestep due to GW emission
     }
 
-    p_Dt *= OPTIONS->TimestepMultiplier();	
+    newDt *= OPTIONS->TimestepMultiplier();	
 
-    p_Dt = std::max(std::round(p_Dt / TIMESTEP_QUANTUM) * TIMESTEP_QUANTUM, NUCLEAR_MINIMUM_TIMESTEP);                  // quantised and not less than minimum
-
-    return p_Dt;
+    return std::max(std::round(newDt / TIMESTEP_QUANTUM) * TIMESTEP_QUANTUM, NUCLEAR_MINIMUM_TIMESTEP);                // quantised and not less than minimum
 }
 
 
