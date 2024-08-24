@@ -419,7 +419,7 @@ private:
     void    CalculateGravitationalRadiation();
     void    EmitGravitationalWave(const double p_Dt);
 
-    double  ChooseTimestep(double p_Dt);
+    double  ChooseTimestep(const double p_Dt);
 
     void    CalculateEnergyAndAngularMomentum();
 
